@@ -1,0 +1,12 @@
+﻿{
+    "version":  "2.1.0",
+    "conversionChecks":  46,
+    "uiChecks":  10,
+    "nativeImportsChecked":  852,
+    "isolatedEnvironment":  true,
+    "cleanVirtualMachine":  false,
+    "installation":  true,
+    "installedAppConversion":  true,
+    "uninstallation":  true,
+    "digitalSignature":  "unsigned"
+}

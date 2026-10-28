@@ -53,4 +53,3 @@ Os arquivos são processados localmente. GIF/TIFF multipágina usa o primeiro qu
 O código do aplicativo é GPL-3.0-or-later. Os componentes terceiros conservam suas próprias licenças e avisos; consulte [TERCEIROS.md](third-party/TERCEIROS.md). Os binários distribuídos incluem os respectivos arquivos de licença. As fontes e URLs de distribuição dos componentes estão documentadas nos avisos e metadados.
 
 ![Interface do Converter Aqui](assets/interface.png)
-
