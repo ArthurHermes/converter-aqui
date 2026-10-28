@@ -53,7 +53,7 @@ git tag v2.2.0
 git push origin v2.2.0
 ```
 
-Os componentes terceiros (Python, LibreOffice, Tesseract) são reaproveitados do instalador do release indicado em `COMPONENTS_RELEASE`, conferido pelo SHA256 publicado. Em pull requests o workflow só compila e testa; o instalador fica disponível como artefato da execução.
+Os componentes terceiros (Python, LibreOffice, Tesseract) são reaproveitados do instalador do release indicado em `COMPONENTS_RELEASE`, conferido pelo SHA256 publicado. Em pushes na `main` e em pull requests o workflow só compila e testa; o instalador fica disponível como artefato da execução.
 
 ## Limites e privacidade
 

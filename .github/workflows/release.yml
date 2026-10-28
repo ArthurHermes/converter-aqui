@@ -1,11 +1,12 @@
 # Compila o instalador, roda os testes de conversão e, quando uma tag v1.2.3 é enviada,
-# publica o release no GitHub. Em pull requests só compila e testa.
+# publica o release no GitHub. Em pushes na main e em pull requests só compila e testa.
 #
 # Para lançar uma versão:  git tag v2.2.0  &&  git push origin v2.2.0
 name: Release
 
 on:
   push:
+    branches: [main]
     tags: ['v*.*.*']
   pull_request:
   workflow_dispatch:
