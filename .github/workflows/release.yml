@@ -85,7 +85,7 @@ jobs:
           & "$env:CONVERTER_AQUI_APP\runtime\python.exe" tests/test_conversions.py
           if ($LASTEXITCODE -ne 0) { throw 'Os testes de conversão falharam.' }
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: ConverterAqui-${{ steps.version.outputs.value }}-instalador
           path: |
