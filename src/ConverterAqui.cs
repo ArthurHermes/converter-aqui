@@ -56,10 +56,10 @@ namespace ConverterAqui {
 
     static class Engine {
         public static readonly JsonAdapter Json = new JsonAdapter();
-        public static async Task<int> Run(string job, Action<string> progress) {
+        public static async Task<int> Run(string job, Action<Dictionary<string, object>> progress) {
             string home = AppDomain.CurrentDomain.BaseDirectory;
             string python = Path.Combine(home, @"runtime\python.exe");
-            if (!File.Exists(python)) throw new FileNotFoundException("Componentes ausentes. Extraia a pasta inteira do ZIP antes de abrir o app.");
+            if (!File.Exists(python)) throw new FileNotFoundException("Componentes de conversão ausentes. Reinstale o Converter Aqui pelo instalador completo.");
             var start = new ProcessStartInfo(python, Quote(Path.Combine(home, "converter_backend.py")) + " " + Quote(Path.GetFullPath(job)));
             start.UseShellExecute = false; start.CreateNoWindow = true; start.RedirectStandardOutput = true; start.RedirectStandardError = true;
             start.StandardOutputEncoding = Encoding.UTF8; start.StandardErrorEncoding = Encoding.UTF8;
@@ -70,7 +70,7 @@ namespace ConverterAqui {
                 while ((line = await process.StandardOutput.ReadLineAsync().ConfigureAwait(false)) != null) {
                     try {
                         var data = Json.Deserialize<Dictionary<string, object>>(line);
-                        if (progress != null && data.ContainsKey("message")) progress(Convert.ToString(data["message"]));
+                        if (progress != null && data.ContainsKey("message")) progress(data);
                     } catch (System.Text.Json.JsonException) { }
                 }
                 await Task.Run(() => process.WaitForExit()).ConfigureAwait(false);
@@ -128,8 +128,8 @@ namespace ConverterAqui {
 
     sealed partial class MainForm : Form {
         readonly ListView files = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = true };
-        readonly ComboBox operation = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-        readonly ComboBox target = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+        readonly ComboBox operation = new FlatCombo { Dock = DockStyle.Fill };
+        readonly ComboBox target = new FlatCombo { Dock = DockStyle.Fill };
         readonly TextBox destination = new TextBox { Dock = DockStyle.Fill, ReadOnly = true };
         readonly TextBox pages = new TextBox { Dock = DockStyle.Fill };
         readonly NumericUpDown quality = new NumericUpDown { Minimum = 1, Maximum = 100, Value = 90, Width = 70 };
@@ -141,12 +141,11 @@ namespace ConverterAqui {
         readonly Button convert = new AppButton { Text = "Iniciar", AutoSize = true };
         readonly Button cancel = new AppButton { Text = "Cancelar", AutoSize = true, Enabled = false };
         readonly Button open = new AppButton { Text = "Abrir resultados", AutoSize = true, Enabled = false };
-        readonly ProgressBar progress = new ProgressBar { Dock = DockStyle.Fill, Height = 6, Style = ProgressBarStyle.Blocks };
+        readonly ProgressLine progress = new ProgressLine { Dock = DockStyle.Fill, Height = 6 };
         readonly List<Control> locked = new List<Control>();
-        bool busy; string currentJob, resultsFolder;
+        AppButton moveUp, moveDown, removeFiles;
+        bool busy, closeWhenIdle; string currentJob; string[] results = new string[0];
         public MainForm(string[] inputs, string preset) { InitializeModernInterface(inputs, preset); }
-        static Label Label(string text) { return new Label { Text = text, AutoSize = true, Margin = new Padding(3, 7, 8, 3) }; }
-        static Button Button(string text, Action action) { var button = new Button { Text = text, AutoSize = true }; button.Click += (s, e) => action(); return button; }
         void AddDialog() {
             using (var dialog = new OpenFileDialog { Multiselect = true, CheckFileExists = true, Filter = "Arquivos suportados|" + string.Join(";", Catalog.Extensions.Select(x => "*" + x)) + "|Todos os arquivos|*.*" }) if (dialog.ShowDialog() == DialogResult.OK) AddFiles(dialog.FileNames);
         }
@@ -166,7 +165,33 @@ namespace ConverterAqui {
             if (files.SelectedItems.Count != 1) { status.Text = "Selecione um arquivo para mudar sua posição."; return; }
             var item = files.SelectedItems[0]; int next = item.Index + direction;
             if (next < 0 || next >= files.Items.Count) return;
-            files.Items.Remove(item); files.Items.Insert(next, item); item.Selected = true; item.EnsureVisible();
+            files.Items.Remove(item); files.Items.Insert(next, item); item.Selected = true; item.Focused = true; item.EnsureVisible(); files.Focus();
+        }
+        void RemoveSelected() {
+            foreach (ListViewItem item in files.SelectedItems.Cast<ListViewItem>().ToArray()) files.Items.Remove(item);
+            RefreshTargets();
+        }
+        void ChooseDestination() {
+            using (var dialog = new FolderBrowserDialog { SelectedPath = destination.Text, Description = "Escolha onde salvar os arquivos convertidos", UseDescriptionForTitle = true }) {
+                if (dialog.ShowDialog(this) == DialogResult.OK) { destination.Text = dialog.SelectedPath; besideOriginal.Checked = false; }
+                else if (string.IsNullOrWhiteSpace(destination.Text)) besideOriginal.Checked = true;
+            }
+        }
+        void OpenResults() {
+            var existing = results.Where(File.Exists).ToArray();
+            if (existing.Length == 0) { AddLog("Os arquivos gerados foram movidos ou removidos."); return; }
+            // Com um único resultado, o Explorer já abre com o arquivo selecionado.
+            if (existing.Length == 1) Process.Start("explorer.exe", "/select,\"" + existing[0] + "\"");
+            else Process.Start("explorer.exe", "\"" + Path.GetDirectoryName(existing[0]) + "\"");
+        }
+        void OnEngineEvent(Dictionary<string, object> data) {
+            if (IsDisposed) return;
+            if (InvokeRequired) { BeginInvoke(new Action<Dictionary<string, object>>(OnEngineEvent), data); return; }
+            if (data.ContainsKey("step") && data.ContainsKey("total")) {
+                double total = Convert.ToDouble(data["total"]);
+                if (total > 0) progress.Value = Convert.ToDouble(data["step"]) / total;
+            }
+            AddLog(Convert.ToString(data["message"]));
         }
         string ActionId { get { return operation.SelectedItem == null ? "convert" : ((Operation)operation.SelectedItem).Id; } }
         void RefreshTargets() {
@@ -180,7 +205,7 @@ namespace ConverterAqui {
             if (formats.Length > 0) target.SelectedItem = selected != null && formats.Contains(selected) ? selected : formats[0];
             target.Enabled = ActionId == "convert"; pages.Enabled = ActionId != "merge-pdf";
             convert.Enabled = files.Items.Count > 0 && (ActionId != "convert" || formats.Length > 0);
-            status.Text = files.Items.Count + " arquivo(s) na fila.";
+            if (!busy) status.Text = files.Items.Count == 0 ? "Adicione arquivos para começar." : ActionId == "convert" && formats.Length == 0 ? "Os arquivos da fila não têm um formato de saída em comum." : files.Items.Count + " arquivo(s) prontos para converter.";
             UpdateHints();
         }
         void UpdateHints() {
@@ -197,9 +222,12 @@ namespace ConverterAqui {
         void AddLog(string message) {
             if (IsDisposed) return;
             if (InvokeRequired) { BeginInvoke(new Action<string>(AddLog), message); return; }
-            log.AppendText(message + Environment.NewLine); status.Text = message.Length > 105 ? message.Substring(0, 102) + "…" : message;
+            log.AppendText(message + Environment.NewLine); status.Text = message;
             if (stateTitle != null) {
-                stateTitle.Text = message.StartsWith("Concluído:") ? "Tudo pronto!" : message.StartsWith("Falha:") || message.StartsWith("Erro") || message.StartsWith("Concluído com falhas") ? "Confira os detalhes" : message.StartsWith("Cancel") ? "Conversão cancelada" : busy ? "Convertendo seus arquivos…" : "Pronto para converter";
+                if (message.StartsWith("Concluído:")) SetState("Tudo pronto!", Palette.Success);
+                else if (message.StartsWith("Falha:") || message.StartsWith("Erro") || message.StartsWith("Concluído com falhas")) SetState("Confira os detalhes", Palette.Danger);
+                else if (message.StartsWith("Cancel")) SetState(busy ? "Cancelando…" : "Conversão cancelada", Palette.Faint);
+                else if (busy) SetState("Convertendo seus arquivos…", Palette.Blue);
                 if (message.StartsWith("Falha:") || message.StartsWith("Concluído com falhas")) { logCard.Visible = true; showDetails.Text = "Ocultar detalhes"; }
             }
         }
@@ -221,23 +249,25 @@ namespace ConverterAqui {
             var job = new Dictionary<string, object> { { "inputs", inputs }, { "action", ActionId }, { "target", target.SelectedItem as string ?? "" }, { "output", besideOriginal.Checked ? "" : destination.Text }, { "quality", (int)quality.Value }, { "width", (int)width.Value }, { "pages", pages.Text.Trim() } };
             File.WriteAllText(currentJob, Engine.Json.Serialize(job), new UTF8Encoding(false));
             busy = true; foreach (var control in locked) control.Enabled = false;
-            convert.Enabled = false; cancel.Enabled = true; open.Enabled = false; progress.Visible = true; progress.Style = ProgressBarStyle.Marquee;
+            convert.Enabled = false; cancel.Enabled = true; open.Enabled = false; results = new string[0]; progress.Value = -1; progress.Visible = true;
             log.Clear(); AddLog("Iniciando " + inputs.Length + " arquivo(s)…");
             try {
-                await Engine.Run(currentJob, AddLog);
+                await Engine.Run(currentJob, OnEngineEvent);
                 var result = Engine.Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(currentJob + ".result.json", Encoding.UTF8));
                 var outputs = ((IEnumerable)result["files"]).Cast<object>().Select(Convert.ToString).ToArray();
                 foreach (var output in outputs) AddLog("Salvo: " + output);
                 foreach (var error in ((IEnumerable)result["errors"]).Cast<object>()) { var detail = (Dictionary<string, object>)error; AddLog("Falha: " + Convert.ToString(detail["file"]) + " — " + Convert.ToString(detail["message"])); }
-                if (outputs.Length > 0) { resultsFolder = Path.GetDirectoryName(outputs[0]); open.Enabled = true; }
+                if (outputs.Length > 0) { results = outputs; open.Enabled = true; }
                 string summary = Convert.ToBoolean(result["cancelled"]) ? "Cancelado. Resultados concluídos foram preservados." : Convert.ToBoolean(result["ok"]) ? "Concluído: " + outputs.Length + " arquivo(s) gerado(s)." : "Concluído com falhas: " + outputs.Length + " resultado(s). Consulte os detalhes.";
                 AddLog(summary);
             } catch (Exception ex) { AddLog("Falha: " + ex.Message); }
             finally {
-                busy = false; currentJob = null; cancel.Enabled = false; progress.Visible = false; progress.Style = ProgressBarStyle.Blocks;
+                busy = false; currentJob = null; cancel.Enabled = false; progress.Visible = false;
                 foreach (var control in locked) control.Enabled = true;
                 target.Enabled = ActionId == "convert"; pages.Enabled = ActionId != "merge-pdf"; convert.Enabled = files.Items.Count > 0 && (ActionId != "convert" || target.Items.Count > 0);
+                UpdateQueueButtons();
                 try { Directory.Delete(temp, true); } catch { }
+                if (closeWhenIdle) BeginInvoke(new Action(Close));
             }
         }
     }
