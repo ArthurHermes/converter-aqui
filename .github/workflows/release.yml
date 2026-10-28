@@ -1,8 +1,8 @@
 # Compila o instalador, roda os testes de conversão e publica um release novo a cada push
 # na main. A versão sobe sozinha a partir do último release:
 #   - padrão: correção (2.1.0 -> 2.1.1)
-#   - "#minor" na mensagem do commit: 2.1.0 -> 2.2.0
-#   - "#major" na mensagem do commit: 2.1.0 -> 3.0.0
+#   - "#minor" no título (primeira linha) do commit: 2.1.0 -> 2.2.0
+#   - "#major" no título (primeira linha) do commit: 2.1.0 -> 3.0.0
 #   - "[skip ci]" na mensagem: não compila nem publica
 # Mudanças só em documentação não geram release. Em pull requests só compila e testa.
 name: Release
@@ -51,9 +51,9 @@ jobs:
           $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName -q .tagName
           if ($LASTEXITCODE -ne 0 -or $latest -notmatch '^v?(\d+)\.(\d+)\.(\d+)$') { throw "Último release com tag inesperada: $latest" }
           $major = [int]$Matches[1]; $minor = [int]$Matches[2]; $patch = [int]$Matches[3]
-          # Mensagens de todos os commits do push (ou do PR/execução manual: só o último).
+          # Só o título (primeira linha) de cada commit do push; o corpo pode citar #major sem querer.
           $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
-          $messages = if ($event.commits) { ($event.commits | ForEach-Object { $_.message }) -join "`n" } else { git log -1 --pretty=%B }
+          $messages = if ($event.commits) { ($event.commits | ForEach-Object { ($_.message -split "`r?`n")[0] }) -join "`n" } else { git log -1 --pretty=%s }
           if ($messages -match '#major') { $major++; $minor = 0; $patch = 0 }
           elseif ($messages -match '#minor') { $minor++; $patch = 0 }
           else { $patch++ }

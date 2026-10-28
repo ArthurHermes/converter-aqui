@@ -49,8 +49,8 @@ Os testes criam apenas arquivos sintéticos em `tests/generated`. Os resultados 
 Não há passo manual: cada push na `main` faz o workflow `.github/workflows/release.yml` compilar o app, gerar o instalador, rodar os testes de conversão e publicar um release novo. A versão sobe sozinha a partir do último release:
 
 - padrão: correção, por exemplo 2.1.0 → 2.1.1;
-- `#minor` na mensagem do commit: 2.1.0 → 2.2.0;
-- `#major` na mensagem do commit: 2.1.0 → 3.0.0;
+- `#minor` no título (primeira linha) do commit: 2.1.0 → 2.2.0;
+- `#major` no título (primeira linha) do commit: 2.1.0 → 3.0.0;
 - `[skip ci]` na mensagem: o push não gera release.
 
 Pushes que mudam só documentação (`*.md`) não geram release. Se algum teste falhar, nada é publicado. Os componentes terceiros (Python, LibreOffice, Tesseract) são reaproveitados do instalador do release indicado em `COMPONENTS_RELEASE`, conferido pelo SHA256 publicado. Em pull requests o workflow só compila e testa.
