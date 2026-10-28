@@ -4,7 +4,9 @@
 #ifndef ReleaseOutput
   #define ReleaseOutput "..\..\outputs\release"
 #endif
-#define AppVersion "2.1.0"
+#ifndef AppVersion
+  #define AppVersion "2.1.0"
+#endif
 [Setup]
 AppId={{3864B938-15CE-4F39-855C-A569C9287CB1}
 AppName=Converter Aqui
