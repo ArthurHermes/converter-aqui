@@ -206,7 +206,7 @@ namespace ConverterAqui {
         bool modernReady;
         void InitializeModernInterface(string[] inputs, string preset) {
             SuspendLayout();
-            Text = "Converter Aqui 2.1"; Font = new Font("Segoe UI",10); ForeColor = Palette.Ink; BackColor = Palette.Canvas;
+            Text = "Converter Aqui " + UpdateCheck.Current.ToString(2); Font = new Font("Segoe UI",10); ForeColor = Palette.Ink; BackColor = Palette.Canvas;
             ClientSize = new Size(1200,810); MinimumSize = new Size(1080,740); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi; DoubleBuffered = true; KeyPreview = true;
             try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
@@ -336,6 +336,7 @@ namespace ConverterAqui {
             EnableFileDrop(this);
             KeyDown+=(s,e)=> { if(e.Control && e.KeyCode==Keys.O && !busy) { AddDialog(); e.Handled=true; } };
             FormClosing+=(s,e)=> { if(busy) { e.Cancel=true; closeWhenIdle=true; RequestCancel(); } };
+            Shown+=async(s,e)=>await CheckForUpdates(heading);
             ResumeLayout(true);
             AddFiles(inputs??new string[0]);
             if(preset!=null && target.Items.Contains(preset.ToUpperInvariant())) { target.SelectedItem=preset.ToUpperInvariant(); Shown+=async(s,e)=>await ConvertNow(); }

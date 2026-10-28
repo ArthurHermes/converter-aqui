@@ -44,9 +44,20 @@ $env:CONVERTER_AQUI_APP = "$env:LOCALAPPDATA\Programs\ConverterAqui"
 
 Os testes criam apenas arquivos sintéticos em `tests/generated`. Os resultados do build 2.1.0 acompanham o repositório; os detalhes de instalação estão no arquivo de verificação do release.
 
+### Publicar uma versão
+
+O workflow `.github/workflows/release.yml` compila o app, gera o instalador, roda os testes de conversão e publica o release. Para lançar, crie e envie uma tag com o número da versão:
+
+```powershell
+git tag v2.2.0
+git push origin v2.2.0
+```
+
+Os componentes terceiros (Python, LibreOffice, Tesseract) são reaproveitados do instalador do release indicado em `COMPONENTS_RELEASE`, conferido pelo SHA256 publicado. Em pull requests o workflow só compila e testa; o instalador fica disponível como artefato da execução.
+
 ## Limites e privacidade
 
-Os arquivos são processados localmente. GIF/TIFF multipágina usa o primeiro quadro. SVG não é vetor de saída. OCR gera TXT e deve ser revisado. Documentos complexos podem ter diferenças de paginação/fontes. PDFs protegidos precisam ser desbloqueados; assinaturas digitais e formulários não são garantidos após manipular páginas. O suporte de mídia depende do codec dentro do arquivo.
+Os arquivos são processados localmente. Ao abrir, o app consulta o GitHub para saber se existe uma versão mais nova e mostra um aviso com o link de download; nenhum arquivo ou dado seu é enviado. Para desativar, crie o valor `VerificarAtualizacoes` = `0` em `HKEY_CURRENT_USER\Software\ConverterAqui`. GIF/TIFF multipágina usa o primeiro quadro. SVG não é vetor de saída. OCR gera TXT e deve ser revisado. Documentos complexos podem ter diferenças de paginação/fontes. PDFs protegidos precisam ser desbloqueados; assinaturas digitais e formulários não são garantidos após manipular páginas. O suporte de mídia depende do codec dentro do arquivo.
 
 ## Licença
 

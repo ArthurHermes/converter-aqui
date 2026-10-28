@@ -1,0 +1,104 @@
+# Compila o instalador, roda os testes de conversão e, quando uma tag v1.2.3 é enviada,
+# publica o release no GitHub. Em pull requests só compila e testa.
+#
+# Para lançar uma versão:  git tag v2.2.0  &&  git push origin v2.2.0
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Python, LibreOffice e Tesseract não ficam no repositório (cerca de 2 GB). Eles são
+  # reaproveitados do instalador deste release, conferido pelo SHA256SUMS.txt publicado.
+  # Para atualizar algum componente, publique um release com os novos binários e troque aqui.
+  COMPONENTS_RELEASE: v2.1.0
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Definir versão
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $version = $env:GITHUB_REF_NAME.TrimStart('v') }
+          else { $version = ([xml](Get-Content -Raw src/ConverterAqui.csproj)).Project.PropertyGroup.Version }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag inválida: $env:GITHUB_REF_NAME. Use o formato v1.2.3." }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Obter componentes do instalador ${{ env.COMPONENTS_RELEASE }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $download = Join-Path $env:RUNNER_TEMP 'base'
+          gh release download $env:COMPONENTS_RELEASE --repo $env:GITHUB_REPOSITORY --pattern '*-Setup-win-x64.exe' --pattern 'SHA256SUMS.txt' --dir $download
+          if ($LASTEXITCODE -ne 0) { throw "Não foi possível baixar o release $env:COMPONENTS_RELEASE." }
+          $setup = Get-ChildItem $download -Filter '*-Setup-win-x64.exe' | Select-Object -First 1
+          $line = Get-Content (Join-Path $download 'SHA256SUMS.txt') | Where-Object { $_ -like "*$($setup.Name)" } | Select-Object -First 1
+          $expected = ($line -split '\s+')[0]
+          $actual = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash
+          if (-not $expected -or $actual -ne $expected.ToUpperInvariant()) { throw "SHA256 do instalador base não confere: $actual" }
+          # Instalação silenciosa por usuário, sem menu de contexto e sem abrir o app.
+          $components = Join-Path $env:RUNNER_TEMP 'componentes'
+          $process = Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/MERGETASKS=!contextmenu', "/DIR=`"$components`"", "/LOG=`"$env:RUNNER_TEMP\instalador-base.log`"" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { Get-Content "$env:RUNNER_TEMP\instalador-base.log" -Tail 40; throw "Instalador base falhou com código $($process.ExitCode)." }
+          "COMPONENTS_DIR=$components" >> $env:GITHUB_ENV
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem 'C:\Program Files*\Inno Setup*\ISCC.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+            $iscc = Get-ChildItem 'C:\Program Files*\Inno Setup*\ISCC.exe' | Select-Object -First 1
+          }
+          if (-not $iscc) { throw 'ISCC.exe não encontrado após instalar o Inno Setup.' }
+          "ISCC=$($iscc.FullName)" >> $env:GITHUB_ENV
+
+      - name: Compilar app e instalador
+        shell: pwsh
+        run: ./scripts/Build.ps1 -ComponentsFrom $env:COMPONENTS_DIR -InnoCompiler $env:ISCC -Version '${{ steps.version.outputs.value }}'
+
+      - name: Testar conversões no app compilado
+        shell: pwsh
+        run: |
+          $env:CONVERTER_AQUI_APP = (Resolve-Path 'dist/ConverterAqui-${{ steps.version.outputs.value }}-win-x64').Path
+          & "$env:CONVERTER_AQUI_APP\runtime\python.exe" tests/test_conversions.py
+          if ($LASTEXITCODE -ne 0) { throw 'Os testes de conversão falharam.' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ConverterAqui-${{ steps.version.outputs.value }}-instalador
+          path: |
+            dist/*-Setup-win-x64.exe
+            dist/SHA256SUMS.txt
+          retention-days: 7
+
+      - name: Publicar release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          $assets = @("dist/ConverterAqui-$version-Setup-win-x64.exe", 'dist/SHA256SUMS.txt')
+          gh release create $env:GITHUB_REF_NAME @assets --repo $env:GITHUB_REPOSITORY --verify-tag --title "Converter Aqui $version — Instalador completo para Windows" --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao publicar o release.' }
