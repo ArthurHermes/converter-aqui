@@ -33,8 +33,12 @@ Image.MAX_IMAGE_PIXELS = 100_000_000
 class Cancelled(Exception):
     pass
 
-def event(message):
-    print(json.dumps({'message': message}, ensure_ascii=True), flush=True)
+def event(message, step=None, total=None):
+    data = {'message': message}
+    if total:
+        # step = itens concluídos; a interface mostra step/total na barra de progresso.
+        data.update(step=step, total=total)
+    print(json.dumps(data, ensure_ascii=True), flush=True)
 
 def check_cancel(job):
     if job.get('_cancel') and Path(job['_cancel']).exists():
@@ -153,9 +157,10 @@ def image_convert(source, target, stage, job, name=None):
                 converted.save(output, format=fmt, quality=quality, resolution=96.0)
         elif target == 'HEIC':
             image.convert('RGBA' if 'A' in image.getbands() else 'RGB').save(output, format='HEIF', quality=quality)
+        elif image.mode not in {'RGB', 'RGBA', 'L', 'LA', 'P', '1'}:
+            with image.convert('RGBA') as converted:
+                converted.save(output, format=target, quality=quality)
         else:
-            if image.mode not in {'RGB', 'RGBA', 'L', 'LA', 'P', '1'}:
-                image = image.convert('RGBA')
             image.save(output, format=target, quality=quality)
     return [output]
 
@@ -307,8 +312,15 @@ def convert_one(source, stage, job):
         for i in selected:
             for n, image in enumerate(reader.pages[i].images, 1):
                 check_cancel(job)
-                output = stage / (source.stem + '-pagina-%04d-imagem-%03d' % (i + 1, n) + Path(image.name).suffix)
-                output.write_bytes(image.data)
+                name = source.stem + '-pagina-%04d-imagem-%03d' % (i + 1, n)
+                suffix = Path(image.name).suffix.lower()
+                if suffix in {'.png', '.jpg', '.jpeg', '.jp2', '.tif', '.tiff', '.gif', '.bmp'}:
+                    output = stage / (name + suffix)
+                    output.write_bytes(image.data)
+                else:
+                    # Sem extensão conhecida (ex.: imagens com filtros raros): regrava como PNG.
+                    output = stage / (name + '.png')
+                    image.image.save(output, format='PNG')
                 results.append(output)
         if not results:
             raise ValueError('Nenhuma imagem incorporada foi encontrada. Para capturar a página inteira, converta o PDF para PNG.')
@@ -322,7 +334,7 @@ def merge_sources(sources, stage, job):
     try:
         for n, source in enumerate(sources):
             check_cancel(job)
-            event('Juntando %d/%d: %s' % (n + 1, len(sources), source.name))
+            event('Juntando %d/%d: %s' % (n + 1, len(sources), source.name), n, len(sources))
             if source.suffix.lower() in IMAGE_EXT:
                 image_dir = stage / ('_imagem-%04d' % n)
                 image_dir.mkdir()
@@ -388,7 +400,7 @@ def execute(job):
     for i, source in enumerate(sources):
         try:
             check_cancel(job)
-            event('Convertendo %d/%d: %s' % (i + 1, len(sources), source.name))
+            event('Convertendo %d/%d: %s' % (i + 1, len(sources), source.name), i, len(sources))
             with tempfile.TemporaryDirectory(prefix='ConverterAqui-') as temporary:
                 files = convert_one(source, Path(temporary), job)
                 result['files'] += commit(files, output or source.parent, job)
