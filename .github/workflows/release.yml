@@ -29,9 +29,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -85,7 +85,7 @@ jobs:
           & "$env:CONVERTER_AQUI_APP\runtime\python.exe" tests/test_conversions.py
           if ($LASTEXITCODE -ne 0) { throw 'Os testes de conversão falharam.' }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ConverterAqui-${{ steps.version.outputs.value }}-instalador
           path: |
