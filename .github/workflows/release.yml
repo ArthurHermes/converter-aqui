@@ -1,13 +1,20 @@
-# Compila o instalador, roda os testes de conversão e, quando uma tag v1.2.3 é enviada,
-# publica o release no GitHub. Em pushes na main e em pull requests só compila e testa.
-#
-# Para lançar uma versão:  git tag v2.2.0  &&  git push origin v2.2.0
+# Compila o instalador, roda os testes de conversão e publica um release novo a cada push
+# na main. A versão sobe sozinha a partir do último release:
+#   - padrão: correção (2.1.0 -> 2.1.1)
+#   - "#minor" na mensagem do commit: 2.1.0 -> 2.2.0
+#   - "#major" na mensagem do commit: 2.1.0 -> 3.0.0
+#   - "[skip ci]" na mensagem: não compila nem publica
+# Mudanças só em documentação não geram release. Em pull requests só compila e testa.
 name: Release
 
 on:
   push:
     branches: [main]
-    tags: ['v*.*.*']
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'assets/**'
+      - 'tests/*.json'
   pull_request:
   workflow_dispatch:
 
@@ -38,11 +45,26 @@ jobs:
       - name: Definir versão
         id: version
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if ($env:GITHUB_REF_TYPE -eq 'tag') { $version = $env:GITHUB_REF_NAME.TrimStart('v') }
-          else { $version = ([xml](Get-Content -Raw src/ConverterAqui.csproj)).Project.PropertyGroup.Version }
-          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag inválida: $env:GITHUB_REF_NAME. Use o formato v1.2.3." }
+          $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName -q .tagName
+          if ($LASTEXITCODE -ne 0 -or $latest -notmatch '^v?(\d+)\.(\d+)\.(\d+)$') { throw "Último release com tag inesperada: $latest" }
+          $major = [int]$Matches[1]; $minor = [int]$Matches[2]; $patch = [int]$Matches[3]
+          # Mensagens de todos os commits do push (ou do PR/execução manual: só o último).
+          $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+          $messages = if ($event.commits) { ($event.commits | ForEach-Object { $_.message }) -join "`n" } else { git log -1 --pretty=%B }
+          if ($messages -match '#major') { $major++; $minor = 0; $patch = 0 }
+          elseif ($messages -match '#minor') { $minor++; $patch = 0 }
+          else { $patch++ }
+          $version = [version]"$major.$minor.$patch"
+          # O csproj funciona como versão mínima: subir o número lá também força um salto.
+          $declared = [version](([xml](Get-Content -Raw src/ConverterAqui.csproj)).Project.PropertyGroup.Version)
+          if ($declared -gt $version) { $version = $declared }
+          $publish = $env:GITHUB_REF -eq 'refs/heads/main' -and $env:GITHUB_EVENT_NAME -ne 'pull_request'
+          Write-Host "Último release: $latest  ->  nova versão: $version  (publicar: $publish)"
           "value=$version" >> $env:GITHUB_OUTPUT
+          "publish=$($publish.ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
       - name: Obter componentes do instalador ${{ env.COMPONENTS_RELEASE }}
         shell: pwsh
@@ -94,12 +116,12 @@ jobs:
           retention-days: 7
 
       - name: Publicar release
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.publish == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $version = '${{ steps.version.outputs.value }}'
           $assets = @("dist/ConverterAqui-$version-Setup-win-x64.exe", 'dist/SHA256SUMS.txt')
-          gh release create $env:GITHUB_REF_NAME @assets --repo $env:GITHUB_REPOSITORY --verify-tag --title "Converter Aqui $version — Instalador completo para Windows" --generate-notes
+          gh release create "v$version" @assets --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Converter Aqui $version — Instalador completo para Windows" --generate-notes
           if ($LASTEXITCODE -ne 0) { throw 'Falha ao publicar o release.' }

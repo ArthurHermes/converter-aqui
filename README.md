@@ -46,14 +46,14 @@ Os testes criam apenas arquivos sintéticos em `tests/generated`. Os resultados 
 
 ### Publicar uma versão
 
-O workflow `.github/workflows/release.yml` compila o app, gera o instalador, roda os testes de conversão e publica o release. Para lançar, crie e envie uma tag com o número da versão:
+Não há passo manual: cada push na `main` faz o workflow `.github/workflows/release.yml` compilar o app, gerar o instalador, rodar os testes de conversão e publicar um release novo. A versão sobe sozinha a partir do último release:
 
-```powershell
-git tag v2.2.0
-git push origin v2.2.0
-```
+- padrão: correção, por exemplo 2.1.0 → 2.1.1;
+- `#minor` na mensagem do commit: 2.1.0 → 2.2.0;
+- `#major` na mensagem do commit: 2.1.0 → 3.0.0;
+- `[skip ci]` na mensagem: o push não gera release.
 
-Os componentes terceiros (Python, LibreOffice, Tesseract) são reaproveitados do instalador do release indicado em `COMPONENTS_RELEASE`, conferido pelo SHA256 publicado. Em pushes na `main` e em pull requests o workflow só compila e testa; o instalador fica disponível como artefato da execução.
+Pushes que mudam só documentação (`*.md`) não geram release. Se algum teste falhar, nada é publicado. Os componentes terceiros (Python, LibreOffice, Tesseract) são reaproveitados do instalador do release indicado em `COMPONENTS_RELEASE`, conferido pelo SHA256 publicado. Em pull requests o workflow só compila e testa.
 
 ## Limites e privacidade
 
