@@ -1,0 +1,7 @@
+src/bin/
+src/obj/
+dist/
+work/
+tests/generated/
+__pycache__/
+*.user

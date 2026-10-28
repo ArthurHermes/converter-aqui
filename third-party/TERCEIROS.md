@@ -1,0 +1,14 @@
+# Componentes incluídos
+
+- **CPython 3.13.12 x64**, distribuição embutida da Python Software Foundation. Licença PSF em `runtime/LICENSE.txt`. Origem: https://www.python.org/ftp/python/3.13.12/python-3.13.12-embed-amd64.zip . SHA256: `76f238f606250c87c6beac75dccd35ee99070a13490555936abb6cb64ecce3d0`.
+- **Pillow 13.0.0**, **pillow-heif 1.8.1**, **pypdf 6.21.3**, **resvg-py 0.5.0**, **imageio-ffmpeg 0.6.0**. Wheels oficiais do PyPI, com hashes verificados antes da extração. URLs e hashes em `COMPONENTES.json`. Licenças e metadados nos diretórios `runtime/*dist-info`.
+- **FFmpeg 7.1 essentials build de gyan.dev**, distribuído dentro do wheel `imageio-ffmpeg 0.6.0`. Este executável é GPLv3; a licença BSD do wrapper imageio-ffmpeg não substitui a licença do FFmpeg e de seus codecs. Código-fonte FFmpeg: https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz . Build e dependências: https://www.gyan.dev/ffmpeg/builds/ . Projeto do empacotador: https://github.com/imageio/imageio-ffmpeg/tree/v0.6.0 . Licença GPLv3 incluída em `LICENCAS/FFmpeg-GPLv3.txt`.
+- **LibreOffice 26.2.6.3 x64**, build `8221e31b3ac356a1623c672912a3d2b492f7e3d1`, extraído do MSI oficial, sem instalação do produto. Foram omitidos dicionários e recursos de interface de idiomas adicionais; preservados português e inglês. Licenças e avisos originais em `libreoffice/LICENSE.html`, `libreoffice/license.txt` e `libreoffice/NOTICE`. Origem: https://download.documentfoundation.org/libreoffice/stable/26.2.6/win/x86_64/LibreOffice_26.2.6_Win_x86-64.msi . SHA256: `f9877032fd908beb9c0ddf06df4af5c2e85f419c42e14876c4cce5aae5fb2660`. Código-fonte correspondente e bibliotecas externas: https://download.documentfoundation.org/libreoffice/src/26.2.6/ . Projeto: https://www.libreoffice.org/ . O LibreOffice e seus nomes/marcas pertencem aos respectivos titulares.
+
+Os componentes nativos do Windows e o .NET Framework são fornecidos pelo sistema operacional. Nenhum Microsoft Word ou Excel está incluído no pacote.
+
+## Adições do release 2.1.0
+
+- .NET 10.0.14 / Windows Desktop Runtime 10.0.14 x64, incluídos no modo self-contained. Licenças em LICENCAS/dotnet-*. Origem: https://github.com/dotnet/runtime e https://github.com/dotnet/winforms .
+- Tesseract 5.5.3.20260724 x64 (Apache 2.0) com modelos português/inglês de tessdata_fast. Licenças em ocr/LICENSE.txt e ocr/doc. Binário oficial referenciado por UB Mannheim: https://github.com/tesseract-ocr/tesseract/releases/tag/5.5.3 . Modelos: https://github.com/tesseract-ocr/tessdata_fast . Fontes: https://github.com/tesseract-ocr/tesseract/tree/5.5.3 .
+- DLLs do runtime C++ redistribuídas junto do LibreOffice, provenientes do mesmo MSI verificado. A integração JavaBean opcional officebean.dll foi omitida, pois não é usada nas conversões do app. As exportações suportadas não requerem Java.

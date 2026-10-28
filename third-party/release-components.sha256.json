@@ -1,0 +1,27 @@
+[
+  {
+    "artifact": "dotnet-sdk.zip",
+    "sha256": "f398979a9cac2dba760771c4e01f16e431dcd6bcfb2213e3e8f5b3d354095cc0",
+    "bytes": 300745255
+  },
+  {
+    "artifact": "innosetup-verified.exe",
+    "sha256": "0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f",
+    "bytes": 14304168
+  },
+  {
+    "artifact": "tesseract-setup.exe",
+    "sha256": "bee9e3434bd94fd65387d9be28cd467a41f61b1275383b55b0f59a1331270ae4",
+    "bytes": 26573224
+  },
+  {
+    "artifact": "por.traineddata",
+    "sha256": "c4932b937207a9514b7514d518b931a99938c02a28a5a5a553f8599ed58b7deb",
+    "bytes": 1982756
+  },
+  {
+    "artifact": "eng.traineddata",
+    "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+    "bytes": 4113088
+  }
+]

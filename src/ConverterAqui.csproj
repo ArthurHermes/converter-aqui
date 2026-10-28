@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <AssemblyName>ConverterAqui</AssemblyName>
+    <RootNamespace>ConverterAqui</RootNamespace>
+    <Version>2.1.0</Version>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <FileVersion>2.1.0.0</FileVersion>
+    <Product>Converter Aqui</Product>
+    <Description>Conversor local de imagens, PDF, documentos, áudio e vídeo.</Description>
+    <Company>Arthur Hermes</Company>
+    <Copyright>Copyright © 2026 Arthur Hermes</Copyright>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="converter_backend.py" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="WindowsServices.ps1" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
